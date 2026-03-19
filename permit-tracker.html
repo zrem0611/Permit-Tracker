@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Permit Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+    }
+    header {
+      background: #1a1a2e;
+      color: white;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+    .region-tabs {
+      display: flex;
+      gap: 12px;
+      padding: 20px 32px 0;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 9px 22px;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: none;
+      background: #dde1ea;
+      color: #555;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: white;
+      color: #1a1a2e;
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.08);
+    }
+    .container {
+      background: white;
+      margin: 0 32px 32px;
+      border-radius: 0 12px 12px 12px;
+      padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .toolbar input, .toolbar select {
+      padding: 8px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .toolbar input:focus, .toolbar select:focus { border-color: #4a6cf7; }
+    .toolbar input[type="text"] { flex: 1; min-width: 180px; }
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .btn-primary { background: #4a6cf7; color: white; }
+    .btn-primary:hover { background: #3a5ce5; }
+    .btn-danger { background: #ff4d4f; color: white; }
+    .btn-danger:hover { background: #e03e40; }
+    .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    thead th {
+      background: #f7f8fc;
+      padding: 11px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: #555;
+      border-bottom: 2px solid #eee;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    thead th:hover { color: #4a6cf7; }
+    tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
+    tbody tr:hover { background: #f7f8ff; }
+    tbody td { padding: 11px 14px; vertical-align: middle; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-pending   { background: #fff3cd; color: #856404; }
+    .badge-submitted { background: #cce5ff; color: #004085; }
+    .badge-approved  { background: #d4edda; color: #155724; }
+    .badge-denied    { background: #f8d7da; color: #721c24; }
+    .badge-expired   { background: #e2e3e5; color: #383d41; }
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #aaa;
+      font-size: 0.95rem;
+    }
+    .stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .stat-card {
+      flex: 1;
+      min-width: 100px;
+      background: #f7f8fc;
+      border-radius: 10px;
+      padding: 12px 16px;
+      text-align: center;
+    }
+    .stat-card .num { font-size: 1.6rem; font-weight: 700; color: #1a1a2e; }
+    .stat-card .lbl { font-size: 0.75rem; color: #888; margin-top: 2px; }
+    .sync-status {
+      font-size: 0.78rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .sync-ok   { background: #d4edda; color: #155724; }
+    .sync-wait { background: #fff3cd; color: #856404; }
+    .sync-err  { background: #f8d7da; color: #721c24; }
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 14px;
+      padding: 28px;
+      width: 480px;
+      max-width: 95vw;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+    .modal h2 { margin-bottom: 18px; font-size: 1.1rem; color: #1a1a2e; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 0.8rem; font-weight: 600; color: #555; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      outline: none;
+      font-family: inherit;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: #4a6cf7; }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-secondary:hover { background: #ddd; }
+    @media (max-width: 600px) {
+      header, .region-tabs, .container { padding-left: 16px; padding-right: 16px; }
+      .container { margin: 0 16px 24px; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🏗️ Permit Tracker</h1>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span id="syncStatus" class="sync-status sync-wait">⏳ Connecting…</span>
+    <span id="dateDisplay" style="font-size:0.85rem;opacity:0.7;"></span>
+  </div>
+</header>
+<div class="region-tabs">
+  <button class="tab active" onclick="switchRegion('Colorado')">📍 Colorado</button>
+  <button class="tab" onclick="switchRegion('Atlanta')">📍 Atlanta</button>
+  <button class="tab" onclick="switchRegion('Utah')">📍 Utah</button>
+  <button class="tab" onclick="switchRegion('All')">🌐 All Jobs</button>
+</div>
+<div class="container">
+  <div class="stats" id="statsBar"></div>
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="Search job, permit #, address…" oninput="render()" />
+    <select id="filterStatus" onchange="render()">
+      <option value="">All Statuses</option>
+      <option>Pending</option>
+      <option>Submitted</option>
+      <option>Approved</option>
+      <option>Denied</option>
+      <option>Expired</option>
+    </select>
+    <button class="btn btn-primary" onclick="openModal()">+ Add Permit</button>
+  </div>
+  <table id="permitTable">
+    <thead>
+      <tr>
+        <th onclick="sortBy('job')">Job Name ↕</th>
+        <th onclick="sortBy('address')">Address ↕</th>
+        <th onclick="sortBy('permitNumber')">Permit # ↕</th>
+        <th onclick="sortBy('status')">Status ↕</th>
+        <th onclick="sortBy('submitted')">Submitted ↕</th>
+        <th onclick="sortBy('expiration')">Expiration ↕</th>
+        <th>Notes</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div id="emptyState" class="empty-state" style="display:none;">No permits found. Add one above.</div>
+</div>
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Add New Permit</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Job Name *</label>
+        <input type="text" id="f_job" placeholder="e.g. Smith Residence" />
+      </div>
+      <div class="form-group">
+        <label>Region *</label>
+        <select id="f_region">
+          <option>Colorado</option>
+          <option>Atlanta</option>
+          <option>Utah</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Address</label>
+        <input type="text" id="f_address" placeholder="123 Main St, Denver, CO" />
+      </div>
+      <div class="form-group">
+        <label>Permit Number</label>
+        <input type="text" id="f_permitNumber" placeholder="e.g. PG-2025-0042" />
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="f_status">
+          <option>Pending</option>
+          <option>Submitted</option>
+          <option>Approved</option>
+          <option>Denied</option>
+          <option>Expired</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Submitted Date</label>
+        <input type="date" id="f_submitted" />
+      </div>
+      <div class="form-group">
+        <label>Expiration Date</label>
+        <input type="date" id="f_expiration" />
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <textarea id="f_notes" placeholder="Inspector contact, special conditions…"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePermit()">Save Permit</button>
+    </div>
+  </div>
+</div>
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from "[gstatic.com](https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js)";
+  import {
+    getFirestore, collection, onSnapshot,
+    addDoc, updateDoc, deleteDoc, doc
+  } from "[gstatic.com](https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js)";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBekz6gWxWspt1X5z7Sp7hgdvHET1lMNUw",
+    authDomain: "permit-tracker-4877d.firebaseapp.com",
+    projectId: "permit-tracker-4877d",
+    storageBucket: "permit-tracker-4877d.firebasestorage.app",
+    messagingSenderId: "79557907736",
+    appId: "1:79557907736:web:d6fcaffba036601255fa6d",
+    measurementId: "G-X32QR1RV61"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const col = collection(db, "permits");
+  let permits     = [];
+  let currentRegion = 'Colorado';
+  let sortKey     = 'job';
+  let sortDir     = 1;
+  let editingId   = null;
+  const REGIONS = ['Colorado', 'Atlanta', 'Utah', 'All'];
+  // ── Real-time listener ──────────────────────────────────────────
+  onSnapshot(col, (snapshot) => {
+    permits = snapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
+    setSyncStatus('ok');
+    render();
+  }, () => setSyncStatus('err'));
+  function setSyncStatus(state) {
+    const el = document.getElementById('syncStatus');
+    el.className = 'sync-status';
+    if (state === 'ok')  { el.classList.add('sync-ok');   el.textContent = '✅ Live'; }
+    if (state === 'wait'){ el.classList.add('sync-wait');  el.textContent = '⏳ Saving…'; }
+    if (state === 'err') { el.classList.add('sync-err');   el.textContent = '❌ Offline'; }
+  }
+  // ── Region tabs ─────────────────────────────────────────────────
+  window.switchRegion = function(r) {
+    currentRegion = r;
+    document.querySelectorAll('.tab').forEach((tab, i) => {
+      tab.classList.toggle('active', REGIONS[i] === r);
+    });
+    render();
+  };
+  // ── Sorting ──────────────────────────────────────────────────────
+  window.sortBy = function(key) {
+    sortDir = sortKey === key ? -sortDir : 1;
+    sortKey = key;
+    render();
+  };
+  // ── Render ───────────────────────────────────────────────────────
+  function filtered() {
+    const q  = document.getElementById('searchBox').value.toLowerCase();
+    const st = document.getElementById('filterStatus').value;
+    return permits.filter(p => {
+      const regionMatch = currentRegion === 'All' || p.region === currentRegion;
+      const search = !q || [p.job, p.address, p.permitNumber, p.notes]
+                            .some(v => (v || '').toLowerCase().includes(q));
+      const statusMatch = !st || p.status === st;
+      return regionMatch && search && statusMatch;
+    }).sort((a, b) => {
+      const av = (a[sortKey] || '').toLowerCase();
+      const bv = (b[sortKey] || '').toLowerCase();
+      return av < bv ? -sortDir : av > bv ? sortDir : 0;
+    });
+  }
+  function badgeClass(status) {
+    return {
+      Pending:   'badge-pending',
+      Submitted: 'badge-submitted',
+      Approved:  'badge-approved',
+      Denied:    'badge-denied',
+      Expired:   'badge-expired'
+    }[status] || '';
+  }
+  function isExpiringSoon(exp) {
+    if (!exp) return false;
+    const days = (new Date(exp) - new Date()) / 86400000;
+    return days >= 0 && days <= 30;
+  }
+  function render() {
+    const data  = filtered();
+    const tbody = document.getElementById('tableBody');
+    const empty = document.getElementById('emptyState');
+    const all = currentRegion === 'All' ? permits : permits.filter(p => p.region === currentRegion);
+    const counts = { Pending: 0, Submitted: 0, Approved: 0, Denied: 0, Expired: 0 };
+    all.forEach(p => counts[p.status] = (counts[p.status] || 0) + 1);
+    document.getElementById('statsBar').innerHTML = [
+      ['Total',     all.length,        '#4a6cf7'],
+      ['Approved',  counts.Approved,   '#28a745'],
+      ['Pending',   counts.Pending,    '#ffc107'],
+      ['Submitted', counts.Submitted,  '#007bff'],
+      ['Denied',    counts.Denied,     '#dc3545'],
+    ].map(([lbl, num, clr]) => `
+      <div class="stat-card">
+        <div class="num" style="color:${clr}">${num}</div>
+        <div class="lbl">${lbl}</div>
+      </div>`).join('');
+    if (!data.length) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('permitTable').style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    document.getElementById('permitTable').style.display = 'table';
+    tbody.innerHTML = data.map(p => `
+      <tr>
+        <td><strong>${p.job}</strong><br/><small style="color:#888">${p.region}</small></td>
+        <td>${p.address || '—'}</td>
+        <td>${p.permitNumber || '—'}</td>
+        <td><span class="badge ${badgeClass(p.status)}">${p.status}</span></td>
+        <td>${p.submitted || '—'}</td>
+        <td style="${isExpiringSoon(p.expiration) ? 'color:#e67e22;font-weight:600' : ''}">
+          ${p.expiration || '—'}${isExpiringSoon(p.expiration) ? ' ⚠️' : ''}
+        </td>
+        <td style="max-width:160px;white-space:pre-wrap;font-size:0.8rem">${p.notes || ''}</td>
+        <td>
+          <button class="btn btn-primary btn-sm" onclick="openModal('${p._id}')">Edit</button>
+          <button class="btn btn-danger btn-sm" style="margin-top:4px" onclick="deletePermit('${p._id}')">Del</button>
+        </td>
+      </tr>`).join('');
+  }
+  // ── Modal ────────────────────────────────────────────────────────
+  window.openModal = function(id = null) {
+    editingId = id;
+    document.getElementById('modalTitle').textContent = id ? 'Edit Permit' : 'Add New Permit';
+    const fields = ['job', 'region', 'address', 'permitNumber', 'status', 'submitted', 'expiration', 'notes'];
+    if (id) {
+      const p = permits.find(x => x._id === id);
+      fields.forEach(f => document.getElementById('f_' + f).value = p[f] || '');
+    } else {
+      fields.forEach(f => document.getElementById('f_' + f).value = '');
+      document.getElementById('f_region').value  = currentRegion === 'All' ? 'Colorado' : currentRegion;
+      document.getElementById('f_status').value  = 'Pending';
+    }
+    document.getElementById('modalOverlay').classList.add('open');
+  };
+  window.closeModal = function() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    editingId = null;
+  };
+  window.savePermit = async function() {
+    const job = document.getElementById('f_job').value.trim();
+    if (!job) { alert('Job Name is required.'); return; }
+    const obj = {
+      job,
+      region:       document.getElementById('f_region').value,
+      address:      document.getElementById('f_address').value.trim(),
+      permitNumber: document.getElementById('f_permitNumber').value.trim(),
+      status:       document.getElementById('f_status').value,
+      submitted:    document.getElementById('f_submitted').value,
+      expiration:   document.getElementById('f_expiration').value,
+      notes:        document.getElementById('f_notes').value.trim(),
+    };
+    setSyncStatus('wait');
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, 'permits', editingId), obj);
+      } else {
+        await addDoc(col, obj);
+      }
+      closeModal();
+    } catch (e) {
+      alert('Save failed: ' + e.message);
+      setSyncStatus('err');
+    }
+  };
+  window.deletePermit = async function(id) {
+    if (!confirm('Delete this permit?')) return;
+    setSyncStatus('wait');
+    try {
+      await deleteDoc(doc(db, 'permits', id));
+    } catch (e) {
+      alert('Delete failed: ' + e.message);
+      setSyncStatus('err');
+    }
+  };
+  // ── Date display ─────────────────────────────────────────────────
+  document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  document.getElementById('modalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  });
+</script>
+</body>
+</html>
